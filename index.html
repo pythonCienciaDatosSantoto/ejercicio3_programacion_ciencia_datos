@@ -226,7 +226,7 @@ valor_verificacion_linea = 0.0 # Reemplaza esto
 # Captura de la gráfica de líneas (no modificar)
 plt.figure() # Crea una nueva figura para esta gráfica
 plt.title('Mi Gráfica de Tendencia') # Ejemplo de título
-# ... tu código de sns.lineplot() va aquí ...
+# ... tu código del gráfico va aquí ...
 buf_linea = io.BytesIO()
 plt.savefig(buf_linea, format='png')
 buf_linea.seek(0)
@@ -245,7 +245,7 @@ valor_verificacion_corr = 0.0 # Reemplaza esto
 # Captura del mapa de calor (no modificar)
 plt.figure() # Crea una nueva figura para esta gráfica
 plt.title('Mi Mapa de Correlación') # Ejemplo de título
-# ... tu código de sns.heatmap() va aquí ...
+# ... tu código del gráfico va aquí ...
 buf_corr = io.BytesIO()
 plt.savefig(buf_corr, format='png')
 buf_corr.seek(0)
@@ -564,4 +564,5 @@ evaluacion_resultado['feedback'] += f"\\n--- CALIFICACIÓN FINAL: {evaluacion_re
         };
     </script>
 </body>
+
 </html>
