@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluador Interactivo - Análisis de Datos de Educación (Final v2)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <style>
+        .loader { border-top-color: #3498db; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #summary-table table, .reference-table table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        #summary-table th, #summary-table td, .reference-table th, .reference-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        #summary-table th, .reference-table th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans flex items-center justify-center min-h-screen p-4">
+
+    <div class="container mx-auto p-4 lg:p-8 bg-white rounded-xl shadow-lg max-w-6xl w-full">
+
+        <!-- Encabezado -->
+        <div class="flex items-center flex-wrap gap-4 mb-6 border-b pb-4">
+            <img src="logo_santoto.png" alt="Logo Universidad Santo Tomás" class="h-20">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">Programación para Ciencia de Datos</h1>
+                <p class="text-gray-600">Ejercicio 3: Análisis de Datos de Educación</p>
+            </div>
+        </div>
+
+        <!-- Configuración Inicial -->
+        <div id="setup-section">
+            <h2 class="text-xl font-bold text-gray-800 mb-2">Evaluador: Análisis de Matrículas en Colombia</h2>
+            <p class="text-gray-600 mb-6">Ingresa tu correo institucional para generar tu ejercicio. Tienes un máximo de 10 intentos.</p>
+            <div class="flex flex-col sm:flex-row gap-4">
+                <input type="email" id="identificacion" placeholder="tu.correo@usantotomas.edu.co" class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                <button id="generate-btn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition">
+                    Generar Ejercicio
+                </button>
+            </div>
+            <p id="email-error" class="text-red-600 text-sm mt-2 hidden"></p>
+        </div>
+
+        <!-- Sección del Ejercicio -->
+        <div id="exercise-section" class="hidden">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Tu Misión</h2>
+            <div id="enunciado" class="prose max-w-none bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6"></div>
+
+            <h3 class="text-xl font-semibold text-gray-700 mb-2">Editor de Código</h3>
+            <p class="text-gray-500 mb-4">Completa las tareas de análisis en el siguiente editor.</p>
+            <div id="editor" class="border border-gray-300 rounded-lg h-96"></div>
+            
+            <div class="flex flex-wrap gap-4 mt-6">
+                 <button id="submit-btn" class="bg-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-700 transition">
+                    Evaluar Script
+                </button>
+            </div>
+
+            <!-- Resultados -->
+            <div id="output-container" class="mt-6">
+                <h3 class="text-xl font-semibold text-gray-700 mb-2">Resultados de la Evaluación</h3>
+                <pre id="output" class="bg-gray-900 text-white p-4 rounded-lg font-mono text-sm whitespace-pre-wrap min-h-[100px]"></pre>
+                <h3 class="text-xl font-semibold text-gray-700 mt-4 mb-2">Salidas Generadas</h3>
+                <div class="space-y-4">
+                    <!-- Fila de la Tabla -->
+                    <div id="summary-table-container" class="bg-gray-100 p-4 rounded-lg border flex flex-col items-center min-h-[300px]">
+                        <p class="font-bold">Tabla de Resumen</p>
+                        <p id="summary-table-placeholder" class="text-gray-500 text-center flex-grow flex items-center">Tu tabla de resumen aparecerá aquí.</p>
+                        <div id="summary-table" class="w-full mt-2 overflow-x-auto"></div>
+                    </div>
+                    <!-- Fila de las Gráficas -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div id="plot-container-1" class="bg-gray-100 p-4 rounded-lg border flex flex-col items-center min-h-[300px]">
+                            <p class="font-bold">Gráfica de Líneas</p>
+                            <p id="plot-placeholder-1" class="text-gray-500 text-center flex-grow flex items-center">Tu gráfica de tendencia temporal aparecerá aquí.</p>
+                            <img id="plot-img-1" class="hidden max-w-full h-auto rounded-md shadow-md mt-2" />
+                        </div>
+                        <div id="plot-container-2" class="bg-gray-100 p-4 rounded-lg border flex flex-col items-center min-h-[300px]">
+                            <p class="font-bold">Gráfica de Correlación</p>
+                            <p id="plot-placeholder-2" class="text-gray-500 text-center flex-grow flex items-center">Tu mapa de calor de correlaciones aparecerá aquí.</p>
+                            <img id="plot-img-2" class="hidden max-w-full h-auto rounded-md shadow-md mt-2" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Indicador de Carga -->
+        <div id="loader" class="hidden fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex flex-col items-center justify-center z-50">
+            <div class="loader ease-linear rounded-full border-8 border-t-8 border-gray-200 h-32 w-32"></div>
+            <p id="loader-text" class="text-white text-xl mt-4">Cargando...</p>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+    <script>
+        // --- CONFIGURACIÓN ---
+        const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbxGKpFmqizQukG2tSxWv5EjA00LlsFW8Vw9pm9qmAKwhDB80sljzQJaSSLVO-LQrHUu/exec';
+        const MAX_ATTEMPTS = 10;
+        
+        const VALID_EMAILS = new Set([
+            'wilmerpineda@usta.edu.co',
+            'miguel.alarcon@usantotomas.edu.co',
+            'maria.ardilaf@usantotomas.edu.co',
+            'juliebarragan@usantotomas.edu.co',
+            'angelicabecerra@usantotomas.edu.co',
+            'maria.herrerabel@usantotomas.edu.co',
+            'sergio.beltran@usantotomas.edu.co',
+            'williamblanco@usantotomas.edu.co',
+            'cristianbobadilla@usantotomas.edu.co',
+            'dianabricenob@usantotomas.edu.co',
+            'bryan.malagonchi@usantotomas.edu.co',
+            'jackson.apontecor@usantotomas.edu.co',
+            'johncruzb@usantotomas.edu.co',
+            'kevin.melocru@usantotomas.edu.co',
+            'josediazd@usantotomas.edu.co',
+            'deison.hoyosdim@usantotomas.edu.co',
+            'juan.arevalofon@usantotomas.edu.co',
+            'martha.gonzalesfor@usantotomas.edu.co',
+            'mauricio.alzategav@usantotomas.edu.co',
+            'erika.caballerogom@usantotomas.edu.co',
+            'juanmgomezm@usantotomas.edu.co',
+            'juliangomezr@usantotomas.edu.co',
+            'santiagogutierrezo@usantotomas.edu.co',
+            'guillermo.torresgut@usantotomas.edu.co',
+            'oscar.campohue@usantotomas.edu.co',
+            'luis.olivaresjim@usantotomas.edu.co',
+            'sergio.garcialeo@usantotomas.edu.co',
+            'brian.macetoler@usantotomas.edu.co',
+            'jonh.caicedomar@usantotomas.edu.co',
+            'camilo.lagunamar@usantotomas.edu.co',
+            'laura.paipillamed@usantotomas.edu.co',
+            'mario.suarezmen@usantotomas.edu.co',
+            'jaidy.puyonar@usantotomas.edu.co',
+            'bryan.munozpin@usantotomas.edu.co',
+            'luis.perezpor@usantotomas.edu.co',
+            'angela.roseropor@usantotomas.edu.co',
+            'javier.villamizarpra@usantotomas.edu.co',
+            'clara.ortegarob@usantotomas.edu.co',
+            'santiago.caceresrod@usantotomas.edu.co',
+            'jhonromeror@usantotomas.edu.co',
+            'jose.marinron@usantotomas.edu.co',
+            'estefannyruiz@usantotomas.edu.co',
+            'diana.guerrerosan@usantotomas.edu.co',
+            'yuriethsoler@usantotomas.edu.co',
+            'andrea.urquijosus@usantotomas.edu.co',
+            'laura.pereztab@usantotomas.edu.co',
+            'jeferson.bayonator@usantotomas.edu.co',
+            'juan.ulloa@usantotomas.edu.co',
+            'erickvanegas@usantotomas.edu.co',
+            'luzvillarraga@usantotomas.edu.co',
+            'yeison.toro@usantotomas.edu.co'
+        ]);
+
+        // --- REFERENCIAS AL DOM ---
+        const setupSection = document.getElementById('setup-section');
+        const exerciseSection = document.getElementById('exercise-section');
+        const generateBtn = document.getElementById('generate-btn');
+        const submitBtn = document.getElementById('submit-btn');
+        const identificacionInput = document.getElementById('identificacion');
+        const enunciadoDiv = document.getElementById('enunciado');
+        const outputPre = document.getElementById('output');
+        const loader = document.getElementById('loader');
+        const loaderText = document.getElementById('loader-text');
+        const emailError = document.getElementById('email-error');
+        const summaryTableDiv = document.getElementById('summary-table');
+        const summaryTablePlaceholder = document.getElementById('summary-table-placeholder');
+        const plotImg1 = document.getElementById('plot-img-1');
+        const plotPlaceholder1 = document.getElementById('plot-placeholder-1');
+        const plotImg2 = document.getElementById('plot-img-2');
+        const plotPlaceholder2 = document.getElementById('plot-placeholder-2');
+        
+        let pyodide = null;
+        let editor = null;
+
+        // --- INICIALIZACIÓN ---
+        function setupEditor() {
+            editor = ace.edit("editor");
+            editor.setTheme("ace/theme/tomorrow");
+            editor.session.setMode("ace/mode/python");
+            editor.setValue(`# Importa las librerías y la función auxiliar
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import io
+import base64
+# Pega aquí el contenido de funcion_auxiliar.py
+
+# --- Tarea 1: Carga y Conversión ---
+df = load_data_from_api()
+columnas_numericas = ['a_o', 'poblaci_n_5_16', 'cobertura_neta', 'deserci_n', 'aprobaci_n', 'reprobaci_n', 'repitencia', 'sedes_conectadas_a_internet']
+for col in columnas_numericas:
+    df[col] = pd.to_numeric(df[col], errors='coerce')
+
+# --- Tarea 2: Limpieza y Estandarización de Departamentos ---
+# Tu objetivo es crear un DataFrame 'df_limpio' donde los nombres y códigos de departamento
+# sean consistentes, como se muestra en la tabla de referencia del enunciado.
+df_limpio = df.copy()
+# Tu código de estandarización aquí...
+
+# --- Tarea 3: Tabla de Resumen ---
+# El departamento que te fue asignado es: TU_DEPARTAMENTO_AQUI (para Tareas 4 y 5)
+# El año de análisis es: TU_ANIO_AQUI (para Tareas 3 y 5)
+# La variable de análisis es: TU_VARIABLE_AQUI
+
+# Define una función para el Coeficiente de Variación (CV).
+# El CV se define como (desviación estándar / media) * 100.
+def coef_variacion(serie):
+    # Construye la lógica de la función aquí.
+    # No olvides manejar el caso donde la media es cero.
+    return 0 
+
+# Filtra df_limpio para tu año, agrupa por departamento y calcula el CV.
+# Guarda el resultado en un DataFrame llamado 'tabla_resumen'.
+tabla_resumen = pd.DataFrame() # Reemplaza esto
+
+# --- Tarea 4: Gráfica de Líneas y Verificación ---
+# Filtra df_limpio solo por tu departamento asignado.
+# Pista: para ver la tendencia, primero debes agrupar por año ('a_o') y calcular la media de tu variable.
+df_tendencia = pd.DataFrame() # Reemplaza esto
+# Crea una gráfica de líneas de la evolución del promedio anual de TU_VARIABLE_AQUI.
+# Personaliza la gráfica.
+# Para verificar tu trabajo, calcula el promedio de TU_VARIABLE_AQUI para todos los años
+# en tu df_tendencia y guárdalo en la variable 'valor_verificacion_linea'.
+valor_verificacion_linea = 0.0 # Reemplaza esto
+
+# Captura de la gráfica de líneas (no modificar)
+plt.figure() # Crea una nueva figura para esta gráfica
+plt.title('Mi Gráfica de Tendencia') # Ejemplo de título
+# ... tu código de sns.lineplot() va aquí ...
+buf_linea = io.BytesIO()
+plt.savefig(buf_linea, format='png')
+buf_linea.seek(0)
+img_str_linea = base64.b64encode(buf_linea.read()).decode('utf-8')
+plt.close()
+
+# --- Tarea 5: Gráfica de Correlación y Verificación ---
+# Filtra df_limpio por tu departamento y año asignados.
+df_correlacion = pd.DataFrame() # Reemplaza esto
+# Crea un mapa de calor de correlaciones para las variables especificadas.
+# Personaliza el mapa de calor.
+# Para verificar, calcula la correlación entre 'cobertura_neta' y 'aprobaci_n'
+# y guárdala en la variable 'valor_verificacion_corr'.
+valor_verificacion_corr = 0.0 # Reemplaza esto
+
+# Captura del mapa de calor (no modificar)
+plt.figure() # Crea una nueva figura para esta gráfica
+plt.title('Mi Mapa de Correlación') # Ejemplo de título
+# ... tu código de sns.heatmap() va aquí ...
+buf_corr = io.BytesIO()
+plt.savefig(buf_corr, format='png')
+buf_corr.seek(0)
+img_str_corr = base64.b64encode(buf_corr.read()).decode('utf-8')
+plt.close()
+`);
+            editor.clearSelection();
+        }
+
+        async function loadPyodideEnvironment() {
+            showLoader("Cargando Python, Pandas y Matplotlib...");
+            try {
+                pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.1/full/" });
+                await pyodide.loadPackage(['pandas', 'matplotlib', 'numpy']);
+                showLoader("Instalando librerías adicionales (Seaborn, Requests)...");
+                await pyodide.loadPackage("micropip");
+                const micropip = pyodide.pyimport("micropip");
+                await micropip.install(['seaborn', 'requests']);
+                outputPre.textContent = "Entorno listo. ¡Puedes generar tu ejercicio!";
+            } catch (error) {
+                outputPre.textContent = `Error al cargar el entorno: ${error}`;
+            } finally { hideLoader(); }
+        }
+
+        // --- LÓGICA DEL EJERCICIO ---
+        function seededRandom(seed) {
+            let hash = 0;
+            for (let i = 0; i < seed.length; i++) {
+                hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+                hash |= 0;
+            }
+            return Math.abs(Math.sin(hash++));
+        }
+
+        function assignParameter(id, options) {
+            const index = Math.floor(seededRandom(id) * options.length);
+            return options[index];
+        }
+
+        const helperFunctionCode = `import pandas as pd
+import requests
+
+def load_data_from_api(limit: int = 50000) -> pd.DataFrame:
+    api_url = f"https://www.datos.gov.co/resource/nudc-7mev.json?$limit={limit}"
+    try:
+        response = requests.get(api_url)
+        response.raise_for_status()
+        data = response.json()
+        df = pd.DataFrame(data)
+        return df
+    except Exception as e:
+        print(f"Error al cargar datos: {e}")
+        return pd.DataFrame()`;
+
+        function displayExercise(department, year, variable) {
+            const blob = new Blob([helperFunctionCode], { type: 'text/python' });
+            const downloadUrl = URL.createObjectURL(blob);
+            
+            const mapaReferencia = [
+                { codigo: '05', nombre: 'Antioquia'}, { codigo: '08', nombre: 'Atlántico'},
+                { codigo: '11', nombre: 'Bogotá D.C.'}, { codigo: '13', nombre: 'Bolívar'},
+                { codigo: '76', nombre: 'Valle del Cauca'}
+            ];
+
+            let tablaReferenciaHTML = '<div class="reference-table"><table><thead><tr><th>c_digo_departamento</th><th>departamento</th></tr></thead><tbody>';
+            mapaReferencia.forEach(item => {
+                tablaReferenciaHTML += `<tr><td>${item.codigo}</td><td>${item.nombre}</td></tr>`;
+            });
+            tablaReferenciaHTML += '<tr><td>...</td><td>...</td></tr></tbody></table></div>';
+
+            const corr_vars = "<code>'cobertura_neta', 'deserci_n', 'aprobaci_n', 'reprobaci_n', 'repitencia'</code>";
+
+            enunciadoDiv.innerHTML = `
+                <p>Como analista de datos del Ministerio de Educación, tu tarea es analizar los indicadores de matrícula en Colombia. Deberás cargar, limpiar, analizar y visualizar datos para los parámetros que te fueron asignados.</p>
+                
+                <div class="my-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700">
+                    <p class="font-bold">Función Auxiliar Requerida</p>
+                    <p>Para cargar los datos, necesitas una función especial. Cópiala y pégala al inicio de tu script, o descárgala aquí.</p>
+                    <a href="${downloadUrl}" download="funcion_auxiliar.py" class="inline-block mt-2 bg-yellow-500 text-white font-bold py-2 px-4 rounded hover:bg-yellow-600 transition">Descargar funcion_auxiliar.py</a>
+                </div>
+
+                <h4 class="font-bold text-lg mt-4">Tus Parámetros Asignados</h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded"><p class="font-semibold">Departamento (Tareas 4 y 5):</p><p class="font-bold text-xl">${department}</p></div>
+                    <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded"><p class="font-semibold">Año de Análisis (Tareas 3 y 5):</p><p class="font-bold text-xl">${year}</p></div>
+                    <div class="bg-indigo-100 border-l-4 border-indigo-500 text-indigo-700 p-4 rounded"><p class="font-semibold">Variable de Análisis (Tareas 3 y 4):</p><p class="font-bold text-xl">${variable}</p></div>
+                </div>
+                
+                <h4 class="font-bold text-lg mt-4">Tus Tareas</h4>
+                <ol class="list-decimal list-inside space-y-2">
+                    <li><strong>Cargar y Conversión:</strong> Usa la función auxiliar para cargar los datos y convierte las columnas numéricas especificadas a su tipo correcto.</li>
+                    <li><strong>Limpieza y Estandarización:</strong> El dataset tiene inconsistencias. Tu objetivo es crear un <strong><code>df_limpio</code></strong> donde los nombres y códigos de departamento sean consistentes. <strong>Debes lograr que los datos se ajusten a la siguiente tabla de referencia (se muestran solo algunos ejemplos):</strong> ${tablaReferenciaHTML}</li>
+                    <li><strong>Tabla de Resumen:</strong> Para tu <strong>año asignado</strong>, calcula el <strong>Coeficiente de Variación</strong> de tu <strong>variable asignada</strong> para <strong>todos los departamentos</strong>. Para ello, primero construye la función <code>coef_variacion</code>. Luego, genera un DataFrame con el resultado por departamento y guárdalo en la variable <strong><code>tabla_resumen</code></strong>.</li>
+                    <li><strong>Gráfica de Tendencia y Verificación:</strong> Para tu <strong>departamento asignado</strong>, los datos contienen múltiples registros por año (uno por municipio). Para visualizar la tendencia, primero debes <strong>agrupar por año ('a_o') y calcular el promedio</strong> de tu <strong>variable asignada</strong>. Luego, grafica la evolución de este promedio a lo largo de los años. Para verificar tu cálculo, guarda el promedio de tu variable para todos los años en <strong><code>valor_verificacion_linea</code></strong>.</li>
+                    <li><strong>Gráfica de Correlación y Verificación:</strong> Para tu <strong>departamento y año asignados</strong>, crea un mapa de calor que muestre la correlación entre las variables: ${corr_vars}. Para verificar tu cálculo, guarda la correlación específica entre <code>'cobertura_neta'</code> y <code>'aprobaci_n'</code> en la variable <strong><code>valor_verificacion_corr</code></strong>.</li>
+                </ol>
+            `;
+            
+            let initialCode = editor.getValue();
+            initialCode = initialCode.replace(/TU_DEPARTAMENTO_AQUI/g, department);
+            initialCode = initialCode.replace(/TU_ANIO_AQUI/g, year);
+            initialCode = initialCode.replace(/TU_VARIABLE_AQUI/g, variable);
+            editor.setValue(initialCode);
+            editor.clearSelection();
+
+            setupSection.classList.add('hidden');
+            exerciseSection.classList.remove('hidden');
+        }
+
+        // --- LÓGICA DE EVALUACIÓN ---
+        async function evaluateSolution(code, department, year, variable) {
+            if (!pyodide) return { score: 0, feedback: "Error: Pyodide no está cargado." };
+            showLoader("Evaluando tu script...");
+            
+            try {
+                const validationScript = `
+import pandas as pd
+import numpy as np
+
+evaluacion_resultado = {'score': 0, 'feedback': '', 'table': None, 'plot1': None, 'plot2': None}
+
+${helperFunctionCode}
+df_sol = load_data_from_api()
+columnas_numericas = ['a_o', 'poblaci_n_5_16', 'cobertura_neta', 'deserci_n', 'aprobaci_n', 'reprobaci_n', 'repitencia', 'sedes_conectadas_a_internet']
+for col in columnas_numericas:
+    df_sol[col] = pd.to_numeric(df_sol[col], errors='coerce')
+
+def limpiar_y_homologar_departamentos(df):
+    df_limpio = df.copy()
+    df_limpio['c_digo_departamento'] = df_limpio['c_digo_departamento'].astype(str).str.zfill(2)
+    mapa_nombres = {
+        '05': 'Antioquia', '08': 'Atlántico', '11': 'Bogotá D.C.', '13': 'Bolívar',
+        '15': 'Boyacá', '17': 'Caldas', '18': 'Caquetá', '19': 'Cauca', '20': 'Cesar',
+        '23': 'Córdoba', '25': 'Cundinamarca', '27': 'Chocó', '41': 'Huila',
+        '44': 'La Guajira', '47': 'Magdalena', '50': 'Meta', '52': 'Nariño',
+        '54': 'Norte de Santander', '63': 'Quindío', '66': 'Risaralda',
+        '68': 'Santander', '70': 'Sucre', '73': 'Tolima', '76': 'Valle del Cauca',
+        '81': 'Arauca', '85': 'Casanare', '86': 'Putumayo', '88': 'San Andrés',
+        '91': 'Amazonas', '94': 'Guainía', '95': 'Guaviare', '97': 'Vaupés', '99': 'Vichada'
+    }
+    df_limpio['departamento'] = df_limpio['c_digo_departamento'].map(mapa_nombres)
+    return df_limpio.dropna(subset=['departamento'])
+
+df_limpio_sol = limpiar_y_homologar_departamentos(df_sol)
+
+def coef_variacion_sol(serie):
+    if serie.mean() == 0: return 0
+    return (serie.std() / serie.mean()) * 100
+
+df_anio_sol = df_limpio_sol[df_limpio_sol['a_o'] == ${year}]
+tabla_resumen_sol = df_anio_sol.groupby('departamento')['${variable}'].apply(coef_variacion_sol).reset_index()
+
+df_tendencia_sol_agrupado = df_limpio_sol[df_limpio_sol['departamento'] == '${department}'].groupby('a_o')['${variable}'].mean()
+valor_verificacion_linea_sol = round(df_tendencia_sol_agrupado.mean(),2)
+
+df_correlacion_sol = df_limpio_sol[(df_limpio_sol['departamento'] == '${department}') & (df_limpio_sol['a_o'] == ${year})]
+corr_matrix_sol = df_correlacion_sol[['cobertura_neta', 'deserci_n', 'aprobaci_n', 'reprobaci_n', 'repitencia']].corr()
+valor_verificacion_corr_sol = round(corr_matrix_sol.loc['cobertura_neta', 'aprobaci_n'] if 'cobertura_neta' in corr_matrix_sol.index and 'aprobaci_n' in corr_matrix_sol.columns else 0.0,2)
+
+try:
+    try:
+        df_limpio_usr = globals().get('df_limpio')
+        if df_limpio_usr is None: raise NameError("'df_limpio' no fue encontrado.")
+        bogota_check = df_limpio_usr[df_limpio_usr['c_digo_departamento'] == '11']
+        if bogota_check.empty or bogota_check['departamento'].nunique() > 1 or not bogota_check['departamento'].str.contains('Bogotá D.C.').all():
+            raise ValueError("La estandarización para Bogotá D.C. es incorrecta.")
+        evaluacion_resultado['feedback'] += "✅ Tareas 1 y 2: Carga y estandarización de datos correcta.\\n"
+        evaluacion_resultado['score'] += 1
+    except Exception as e:
+        evaluacion_resultado['feedback'] += f"❌ Tareas 1 y 2: {e}\\n"
+
+    if evaluacion_resultado['score'] > 0:
+        try:
+            tabla_resumen_usr = globals().get('tabla_resumen')
+            if tabla_resumen_usr is None: raise NameError("'tabla_resumen' no fue encontrado.")
+            valor_bogota_usr = tabla_resumen_usr[tabla_resumen_usr['departamento'] == 'Bogotá D.C.']['${variable}'].iloc[0]
+            valor_bogota_sol = tabla_resumen_sol[tabla_resumen_sol['departamento'] == 'Bogotá D.C.']['${variable}'].iloc[0]
+            if np.isclose(valor_bogota_usr, valor_bogota_sol, equal_nan=True):
+                evaluacion_resultado['feedback'] += "✅ Tarea 3: Tabla de resumen calculada correctamente.\\n"
+                evaluacion_resultado['score'] += 1
+                evaluacion_resultado['table'] = tabla_resumen_usr.to_html(classes='table-auto w-full text-sm', index=False)
+            else:
+                sol_str = f"{valor_bogota_sol:.2f}" if pd.notna(valor_bogota_sol) else "NaN"
+                usr_str = f"{valor_bogota_usr:.2f}" if pd.notna(valor_bogota_usr) else "NaN"
+                raise ValueError(f"El valor del CV para Bogotá D.C. es incorrecto. Se esperaba {sol_str} y se obtuvo {usr_str}.")
+        except Exception as e:
+            evaluacion_resultado['feedback'] += f"❌ Tarea 3: {e}\\n"
+    else:
+        evaluacion_resultado['feedback'] += "➡️ Tarea 3: Omitida.\\n"
+    
+    try:
+        valor_usr = globals().get('valor_verificacion_linea')
+        plot1 = globals().get('img_str_linea')
+        if valor_usr is None: raise NameError("'valor_verificacion_linea' no fue encontrado.")
+        
+        valor_correcto = np.isclose(valor_usr, valor_verificacion_linea_sol, equal_nan=True)
+        grafica_generada = plot1 and len(plot1) > 2000
+
+        if valor_correcto and grafica_generada:
+            evaluacion_resultado['feedback'] += "✅ Tarea 4: Gráfica de líneas y valor de verificación correctos.\\n"
+            evaluacion_resultado['score'] += 1.5
+            evaluacion_resultado['plot1'] = plot1
+        elif valor_correcto and not grafica_generada:
+            raise ValueError("El valor de verificación es correcto, pero la gráfica no fue generada o está en blanco.")
+        else:
+            sol_str = f"{valor_verificacion_linea_sol:.2f}" if pd.notna(valor_verificacion_linea_sol) else "NaN"
+            usr_str = f"{valor_usr:.2f}" if pd.notna(valor_usr) else "NaN"
+            raise ValueError(f"El valor de verificación es incorrecto. Se esperaba {sol_str} y se obtuvo {usr_str}.")
+    except Exception as e:
+        evaluacion_resultado['feedback'] += f"❌ Tarea 4: {e}\\n"
+
+    try:
+        valor_usr = globals().get('valor_verificacion_corr')
+        plot2 = globals().get('img_str_corr')
+        if valor_usr is None: raise NameError("'valor_verificacion_corr' no fue encontrado.")
+        
+        valor_correcto = np.isclose(valor_usr, valor_verificacion_corr_sol, atol=0.01, equal_nan=True)
+        grafica_generada = plot2 and len(plot2) > 2000
+
+        if valor_correcto and grafica_generada:
+            evaluacion_resultado['feedback'] += "✅ Tarea 5: Gráfica de correlación y valor de verificación correctos.\\n"
+            evaluacion_resultado['score'] += 1.5
+            evaluacion_resultado['plot2'] = plot2
+        elif valor_correcto and not grafica_generada:
+             raise ValueError("El valor de verificación es correcto, pero la gráfica no fue generada o está en blanco.")
+        else:
+            sol_str = f"{valor_verificacion_corr_sol:.2f}" if pd.notna(valor_verificacion_corr_sol) else "NaN"
+            usr_str = f"{valor_usr:.2f}" if pd.notna(valor_usr) else "NaN"
+            raise ValueError(f"El valor de verificación es incorrecto. Se esperaba {sol_str} y se obtuvo {usr_str}.")
+    except Exception as e:
+        evaluacion_resultado['feedback'] += f"❌ Tarea 5: {e}\\n"
+
+except Exception as e:
+    evaluacion_resultado['feedback'] = f"Error de ejecución en tu script: {e}"
+
+evaluacion_resultado['feedback'] += f"\\n--- CALIFICACIÓN FINAL: {evaluacion_resultado['score']:.2f} / 5.0 ---\\n"
+`;
+                // Ejecutar el script del estudiante y luego el de validación
+                await pyodide.runPythonAsync(code);
+                await pyodide.runPythonAsync(validationScript);
+                
+                const resultProxy = pyodide.globals.get('evaluacion_resultado');
+                const result = resultProxy.toJs({ dict_converter: Object.fromEntries });
+                resultProxy.destroy();
+
+                hideLoader();
+                return result;
+
+            } catch (error) {
+                hideLoader();
+                return { 
+                    score: 0, 
+                    feedback: `Error irrecuperable en la evaluación: ${error}`, 
+                    table: null, plot1: null, plot2: null 
+                };
+            }
+        }
+        
+        // --- MANEJADORES DE EVENTOS ---
+        generateBtn.addEventListener('click', async () => {
+            const email = identificacionInput.value.trim().toLowerCase();
+            if (!VALID_EMAILS.has(email)) {
+                emailError.textContent = "Correo no autorizado. Por favor, usa el correo registrado en el curso.";
+                emailError.classList.remove('hidden');
+                return;
+            }
+            const attemptKey = `attempts_${email}_${window.location.pathname}`;
+            let attempts = parseInt(localStorage.getItem(attemptKey) || '0');
+            if (attempts >= MAX_ATTEMPTS) {
+                emailError.textContent = `Has alcanzado el límite de ${MAX_ATTEMPTS} intentos.`;
+                emailError.classList.remove('hidden');
+                return;
+            }
+            emailError.classList.add('hidden');
+            const department = assignParameter(email, ["Antioquia", "Valle del Cauca", "Cundinamarca", "Atlántico", "Santander", "Bolívar", "Bogotá D.C."]);
+            const year = assignParameter(email + 'y', [2018, 2019, 2020, 2021]);
+            const variable = assignParameter(email + 'v', ['cobertura_neta', 'deserci_n', 'reprobaci_n']);
+            displayExercise(department, year, variable);
+        });
+
+        submitBtn.addEventListener('click', async () => {
+            const email = identificacionInput.value.trim().toLowerCase();
+            const attemptKey = `attempts_${email}_${window.location.pathname}`;
+            let attempts = parseInt(localStorage.getItem(attemptKey) || '0');
+            localStorage.setItem(attemptKey, attempts + 1);
+
+            const code = editor.getValue();
+            const department = assignParameter(email, ["Antioquia", "Valle del Cauca", "Cundinamarca", "Atlántico", "Santander", "Bolívar", "Bogotá D.C."]);
+            const year = assignParameter(email + 'y', [2018, 2019, 2020, 2021]);
+            const variable = assignParameter(email + 'v', ['cobertura_neta', 'deserci_n', 'reprobaci_n']);
+            const result = await evaluateSolution(code, department, year, variable);
+            
+            outputPre.textContent = result.feedback;
+            summaryTableDiv.innerHTML = result.table || '';
+            summaryTableDiv.classList.toggle('hidden', !result.table);
+            summaryTablePlaceholder.classList.toggle('hidden', !!result.table);
+            plotImg1.src = result.plot1 ? `data:image/png;base64,${result.plot1}` : '';
+            plotImg1.classList.toggle('hidden', !result.plot1);
+            plotPlaceholder1.classList.toggle('hidden', !!result.plot1);
+            plotImg2.src = result.plot2 ? `data:image/png;base64,${result.plot2}` : '';
+            plotImg2.classList.toggle('hidden', !result.plot2);
+            plotPlaceholder2.classList.toggle('hidden', !!result.plot2);
+        });
+
+        // --- FUNCIONES UTILITARIAS ---
+        function showLoader(text) {
+            loaderText.textContent = text;
+            loader.classList.remove('hidden');
+        }
+        function hideLoader() { loader.classList.add('hidden'); }
+
+        // --- INICIO ---
+        window.onload = () => {
+            setupEditor();
+            loadPyodideEnvironment();
+        };
+    </script>
+</body>
+</html>
