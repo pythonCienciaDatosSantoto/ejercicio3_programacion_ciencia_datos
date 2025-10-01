@@ -20,7 +20,7 @@
 
         <!-- Encabezado -->
         <div class="flex items-center flex-wrap gap-4 mb-6 border-b pb-4">
-            <img src="logo_santoto.png" alt="Logo Universidad Santo Tomás" class="h-20">
+            <img src="logo_santoto.png" alt="Logo Universidad" class="h-20">
             <div>
                 <h1 class="text-2xl font-bold text-gray-800">Programación para Ciencia de Datos</h1>
                 <p class="text-gray-600">Ejercicio 3: Análisis de Datos de Educación</p>
@@ -30,7 +30,7 @@
         <!-- Configuración Inicial -->
         <div id="setup-section">
             <h2 class="text-xl font-bold text-gray-800 mb-2">Evaluador: Análisis de Matrículas en Colombia</h2>
-            <p class="text-gray-600 mb-6">Ingresa tu correo institucional para generar tu ejercicio. Tienes un máximo de 10 intentos.</p>
+            <p class="text-gray-600 mb-6">Ingresa tu correo institucional **autorizado** para generar tu ejercicio. Tienes un máximo de 10 intentos.</p>
             <div class="flex flex-col sm:flex-row gap-4">
                 <input type="email" id="identificacion" placeholder="tu.correo@usantotomas.edu.co" class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
                 <button id="generate-btn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition">
@@ -224,9 +224,8 @@ df_tendencia = pd.DataFrame() # Reemplaza esto
 valor_verificacion_linea = 0.0 # Reemplaza esto
 
 # Captura de la gráfica de líneas (no modificar)
-plt.figure() # Crea una nueva figura para esta gráfica
-plt.title('Mi Gráfica de Tendencia') # Ejemplo de título
-# ... tu código del gráfico va aquí ...
+plt.figure() 
+# ... tu código de sns.lineplot() va aquí ...
 buf_linea = io.BytesIO()
 plt.savefig(buf_linea, format='png')
 buf_linea.seek(0)
@@ -243,9 +242,8 @@ df_correlacion = pd.DataFrame() # Reemplaza esto
 valor_verificacion_corr = 0.0 # Reemplaza esto
 
 # Captura del mapa de calor (no modificar)
-plt.figure() # Crea una nueva figura para esta gráfica
-plt.title('Mi Mapa de Correlación') # Ejemplo de título
-# ... tu código del gráfico va aquí ...
+plt.figure()
+# ... tu código de sns.heatmap() va aquí ...
 buf_corr = io.BytesIO()
 plt.savefig(buf_corr, format='png')
 buf_corr.seek(0)
@@ -399,11 +397,11 @@ df_anio_sol = df_limpio_sol[df_limpio_sol['a_o'] == ${year}]
 tabla_resumen_sol = df_anio_sol.groupby('departamento')['${variable}'].apply(coef_variacion_sol).reset_index()
 
 df_tendencia_sol_agrupado = df_limpio_sol[df_limpio_sol['departamento'] == '${department}'].groupby('a_o')['${variable}'].mean()
-valor_verificacion_linea_sol = round(df_tendencia_sol_agrupado.mean(),2)
+valor_verificacion_linea_sol = df_tendencia_sol_agrupado.mean()
 
 df_correlacion_sol = df_limpio_sol[(df_limpio_sol['departamento'] == '${department}') & (df_limpio_sol['a_o'] == ${year})]
 corr_matrix_sol = df_correlacion_sol[['cobertura_neta', 'deserci_n', 'aprobaci_n', 'reprobaci_n', 'repitencia']].corr()
-valor_verificacion_corr_sol = round(corr_matrix_sol.loc['cobertura_neta', 'aprobaci_n'] if 'cobertura_neta' in corr_matrix_sol.index and 'aprobaci_n' in corr_matrix_sol.columns else 0.0,2)
+valor_verificacion_corr_sol = corr_matrix_sol.loc['cobertura_neta', 'aprobaci_n'] if 'cobertura_neta' in corr_matrix_sol.index and 'aprobaci_n' in corr_matrix_sol.columns else 0.0
 
 try:
     try:
@@ -530,6 +528,9 @@ evaluacion_resultado['feedback'] += f"\\n--- CALIFICACIÓN FINAL: {evaluacion_re
             const email = identificacionInput.value.trim().toLowerCase();
             const attemptKey = `attempts_${email}_${window.location.pathname}`;
             let attempts = parseInt(localStorage.getItem(attemptKey) || '0');
+            
+            // Solo se incrementa el intento si el envío es exitoso (opcional, pero buena práctica)
+            // Para simplificar, lo dejamos como está: se incrementa al hacer clic.
             localStorage.setItem(attemptKey, attempts + 1);
 
             const code = editor.getValue();
@@ -539,7 +540,7 @@ evaluacion_resultado['feedback'] += f"\\n--- CALIFICACIÓN FINAL: {evaluacion_re
             const result = await evaluateSolution(code, department, year, variable);
             
             outputPre.textContent = result.feedback;
-            summaryTableDiv.innerHTML = result.table || '';
+            summaryTableDiv.innerHTML = result.table ? result.table : '';
             summaryTableDiv.classList.toggle('hidden', !result.table);
             summaryTablePlaceholder.classList.toggle('hidden', !!result.table);
             plotImg1.src = result.plot1 ? `data:image/png;base64,${result.plot1}` : '';
@@ -548,6 +549,25 @@ evaluacion_resultado['feedback'] += f"\\n--- CALIFICACIÓN FINAL: {evaluacion_re
             plotImg2.src = result.plot2 ? `data:image/png;base64,${result.plot2}` : '';
             plotImg2.classList.toggle('hidden', !result.plot2);
             plotPlaceholder2.classList.toggle('hidden', !!result.plot2);
+
+            // Enviar resultados a Google Sheets
+            if (GOOGLE_SHEET_URL !== 'URL_DE_APPS_SCRIPT_AQUI') {
+                try {
+                    await fetch(GOOGLE_SHEET_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        body: JSON.stringify({
+                            identificacion: email,
+                            nota: result.score,
+                            feedback: result.feedback,
+                            codigo: code,
+                            grafica: result.plot1 || '' // Envía la primera gráfica
+                        })
+                    });
+                } catch (e) {
+                    console.error("Error al enviar a Google Sheets:", e);
+                }
+            }
         });
 
         // --- FUNCIONES UTILITARIAS ---
@@ -564,6 +584,5 @@ evaluacion_resultado['feedback'] += f"\\n--- CALIFICACIÓN FINAL: {evaluacion_re
         };
     </script>
 </body>
-
 </html>
 
