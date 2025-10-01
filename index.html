@@ -20,7 +20,7 @@
 
         <!-- Encabezado -->
         <div class="flex items-center flex-wrap gap-4 mb-6 border-b pb-4">
-            <img src="logo_santoto.png" alt="Logo Universidad" class="h-20">
+            <img src="logo_santoto.png" alt="Logo Universidad Santo Tomás" class="h-20">
             <div>
                 <h1 class="text-2xl font-bold text-gray-800">Programación para Ciencia de Datos</h1>
                 <p class="text-gray-600">Ejercicio 3: Análisis de Datos de Educación</p>
@@ -30,7 +30,7 @@
         <!-- Configuración Inicial -->
         <div id="setup-section">
             <h2 class="text-xl font-bold text-gray-800 mb-2">Evaluador: Análisis de Matrículas en Colombia</h2>
-            <p class="text-gray-600 mb-6">Ingresa tu correo institucional **autorizado** para generar tu ejercicio. Tienes un máximo de 10 intentos.</p>
+            <p class="text-gray-600 mb-6">Ingresa tu correo institucional para generar tu ejercicio. Tienes un máximo de 10 intentos.</p>
             <div class="flex flex-col sm:flex-row gap-4">
                 <input type="email" id="identificacion" placeholder="tu.correo@usantotomas.edu.co" class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
                 <button id="generate-btn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition">
@@ -397,11 +397,11 @@ df_anio_sol = df_limpio_sol[df_limpio_sol['a_o'] == ${year}]
 tabla_resumen_sol = df_anio_sol.groupby('departamento')['${variable}'].apply(coef_variacion_sol).reset_index()
 
 df_tendencia_sol_agrupado = df_limpio_sol[df_limpio_sol['departamento'] == '${department}'].groupby('a_o')['${variable}'].mean()
-valor_verificacion_linea_sol = df_tendencia_sol_agrupado.mean()
+valor_verificacion_linea_sol = round(df_tendencia_sol_agrupado.mean(),2)
 
 df_correlacion_sol = df_limpio_sol[(df_limpio_sol['departamento'] == '${department}') & (df_limpio_sol['a_o'] == ${year})]
 corr_matrix_sol = df_correlacion_sol[['cobertura_neta', 'deserci_n', 'aprobaci_n', 'reprobaci_n', 'repitencia']].corr()
-valor_verificacion_corr_sol = corr_matrix_sol.loc['cobertura_neta', 'aprobaci_n'] if 'cobertura_neta' in corr_matrix_sol.index and 'aprobaci_n' in corr_matrix_sol.columns else 0.0
+valor_verificacion_corr_sol = round(corr_matrix_sol.loc['cobertura_neta', 'aprobaci_n'] if 'cobertura_neta' in corr_matrix_sol.index and 'aprobaci_n' in corr_matrix_sol.columns else 0.0,2)
 
 try:
     try:
